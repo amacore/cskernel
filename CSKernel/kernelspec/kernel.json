@@ -1,0 +1,5 @@
+{
+  "argv": [ "c:/programdata/jupyter/kernels/csharp/bin/cskernel.exe", "{connection_file}" ],
+  "language": "csharp",
+  "display_name": "CSharp"
+}
