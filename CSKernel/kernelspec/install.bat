@@ -1,1 +1,1 @@
-jupyter kernelspec install d:\remote_repo\CSKernel\CSKernel\kernelspec\ --name='csharp'
+jupyter kernelspec install . --name='csharp'
