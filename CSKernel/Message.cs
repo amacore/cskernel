@@ -9,7 +9,8 @@ namespace CSKernel
 {
     public class Message
     {
-        public List<string> Identity { get; set; }
+        public List<byte[]> Identity { get; set; }
+        public string UUID { get; set; }
         public string Delimiter { get; set; }
         public string HMacSignature { get; set; }
         public Header Header { get; set; }

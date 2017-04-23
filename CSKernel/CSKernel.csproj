@@ -55,6 +55,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConnectionFile.cs" />
+    <Compile Include="KernelInfoReply.cs" />
     <Compile Include="Message.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -66,6 +67,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>$(ProjectDir)\kernelspec\install.bat</PostBuildEvent>
+    <PostBuildEvent>cd $(ProjectDir)\kernelspec
+
+.\install.bat</PostBuildEvent>
   </PropertyGroup>
 </Project>

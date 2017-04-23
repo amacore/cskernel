@@ -14,6 +14,10 @@ namespace CSKernel
 {
     class Program
     {
+        private const string ImplementationName = "IPython";
+        private const string ProtocolVersion = "5.0";
+        private const string Delimiter = "<IDS|MSG>";
+
         static void Main(string[] args)
         {
             var file = JsonConvert.DeserializeObject<ConnectionFile>(File.ReadAllText(args[0]));
@@ -25,8 +29,104 @@ namespace CSKernel
 
             var ioEndpoint = $"{file.Transport}://{file.IP}:{file.IOPubPort}";
             var shellEndpoint = $"{file.Transport}://{file.IP}:{file.ShellPort}";
+            var shellToken = source.Token;
+            using (var ioSocket = new PublisherSocket())
+            using (var shellSocket = new RouterSocket())
+            {
+                ioSocket.Bind(ioEndpoint);
+                shellSocket.Bind(shellEndpoint);
 
+                while (!shellToken.IsCancellationRequested)
+                {
+                    var message = ReceiveMessage(shellSocket);
+                    var messageType = message.Header.MessageType;
+                    switch (messageType)
+                    {
+                        case "kernel_info_request":
+                            var kernelInfoReply = new KernelInfoReply()
+                            {
+                                Implementation = ImplementationName,
+                                ImplementationVersion = "0.0.1",
+                                ProtocolVersion = ProtocolVersion,
+                                LanguangeInfo = new KernelInfoReply.LangInfo
+                                {
+                                    Name = "csharp",
+                                    Version = "7.0",
+                                    FileExtension = ".cs",
+                                    MimeType = "text/plain"
+                                }
+                            };
+                            var replyMessage = GetReplyMessage(message, "kernel_info_reply", kernelInfoReply);
 
+                            SendMessage(replyMessage, shellSocket);
+
+                            break;
+                    }
+                }
+            }
+        }
+
+        private static void SendMessage(Message message, IOutgoingSocket shellSocket)
+        {
+            if (message.Identity.Count > 0)
+            {
+                foreach (var identity in message.Identity)
+                {
+                    shellSocket.TrySendFrame(identity, true);
+                }
+            }
+            else
+            {
+                shellSocket.SendFrame(message.UUID, true);
+            }
+            shellSocket.SendFrame(Delimiter, true);
+            shellSocket.SendFrame(message.HMacSignature ?? string.Empty, true);
+            shellSocket.SendFrame(JsonConvert.SerializeObject(message.Header), true);
+            shellSocket.SendFrame(JsonConvert.SerializeObject(message.ParentHeader), true);
+            shellSocket.SendFrame(JsonConvert.SerializeObject(message.Metadata), true);
+            shellSocket.SendFrame(message.Content);
+        }
+
+        private static Message GetReplyMessage(Message parentMessage, string messageType, KernelInfoReply kernelInfoReply)
+        {
+            var replyMessage = new Message
+            {
+                Identity = parentMessage.Identity,
+                UUID = parentMessage.Header.Session, //todo: should be clarified
+                Header = new Header
+                {
+                    MessageId = Guid.NewGuid().ToString(),
+                    MessageType = messageType,
+                    Session = parentMessage.Header.Session,
+                    Username = ImplementationName,
+                    Version = ProtocolVersion
+                },
+                ParentHeader = parentMessage.Header,
+                Content = JsonConvert.SerializeObject(kernelInfoReply)
+            };
+            return replyMessage;
+        }
+
+        private static Message ReceiveMessage(IReceivingSocket shellSocket)
+        {
+            var message  = new Message();
+            var ident = shellSocket.ReceiveFrameBytes();
+            var identStr = Encoding.ASCII.GetString(ident);
+            message.Identity = new List<byte[]>();
+            while (!identStr.Equals(Delimiter))
+            {
+                message.Identity.Add(ident);
+                ident = shellSocket.ReceiveFrameBytes();
+                identStr = Encoding.ASCII.GetString(ident);
+            }
+            message.Delimiter = identStr;
+            message.HMacSignature = shellSocket.ReceiveFrameString();
+            message.Header = JsonConvert.DeserializeObject<Header>(shellSocket.ReceiveFrameString());
+            message.ParentHeader = JsonConvert.DeserializeObject<Header>(shellSocket.ReceiveFrameString());
+            message.Metadata = JsonConvert.DeserializeObject<Dictionary<string, object>>(shellSocket.ReceiveFrameString());
+            message.Content = shellSocket.ReceiveFrameString();
+
+            return message;
         }
 
         private static void ListenHeartbeat(ConnectionFile file, CancellationToken ct)
