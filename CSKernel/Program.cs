@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,6 +24,8 @@ namespace CSKernel
             var file = JsonConvert.DeserializeObject<ConnectionFile>(File.ReadAllText(args[0]));
 
             var source = new CancellationTokenSource();
+            var signatureChecker = HMAC.Create(file.SignatureScheme.Replace("-", "").ToUpperInvariant());
+            signatureChecker.Key = Encoding.UTF8.GetBytes(file.Key);
 
             var hbTask = new Task(() => ListenHeartbeat(file, source.Token));
             hbTask.Start();
@@ -54,16 +57,36 @@ namespace CSKernel
                                     Version = "7.0",
                                     FileExtension = ".cs",
                                     MimeType = "text/plain"
-                                }
+                                },
+                                Banner = "<<< CSharp Kernel >>>"
                             };
                             var replyMessage = GetReplyMessage(message, "kernel_info_reply", kernelInfoReply);
-
+                            replyMessage.HMacSignature = GetSignature(replyMessage, signatureChecker);
                             SendMessage(replyMessage, shellSocket);
 
                             break;
                     }
                 }
             }
+        }
+
+        private static string GetSignature(Message replyMessage, HashAlgorithm signatureChecker)
+        {
+            signatureChecker.Initialize();
+            foreach (var data in new[]
+            {
+                JsonConvert.SerializeObject(replyMessage.Header),
+                JsonConvert.SerializeObject(replyMessage.ParentHeader),
+                JsonConvert.SerializeObject(replyMessage.Metadata),
+                replyMessage.Content
+            })
+            {
+                var array = Encoding.UTF8.GetBytes(data);
+                signatureChecker.TransformBlock(array, 0, array.Length, null, 0);
+            }
+            signatureChecker.TransformFinalBlock(new byte[] {}, 0, 0);
+
+            return BitConverter.ToString(signatureChecker.Hash).Replace("-", "").ToLowerInvariant();
         }
 
         private static void SendMessage(Message message, IOutgoingSocket shellSocket)
