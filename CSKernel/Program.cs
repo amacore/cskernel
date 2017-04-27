@@ -62,8 +62,7 @@ namespace CSKernel
                                 Banner = "<<< CSharp Kernel >>>"
                             };
                             var replyMessage = GetReplyMessage(message, "kernel_info_reply", kernelInfoReply);
-                            replyMessage.HMacSignature = GetSignature(replyMessage, signatureChecker);
-                            SendMessage(replyMessage, shellSocket);
+                            SendMessage(replyMessage, shellSocket, signatureChecker);
 
                             break;
                         case "shutdown_request":
@@ -73,8 +72,7 @@ namespace CSKernel
                                 source.Cancel();
                             }
                             var shutdownReplyMessage = GetReplyMessage(message, "shutdown_reply", requestInfo);
-                            shutdownReplyMessage.HMacSignature = GetSignature(shutdownReplyMessage, signatureChecker);
-                            SendMessage(shutdownReplyMessage, shellSocket);
+                            SendMessage(shutdownReplyMessage, shellSocket, signatureChecker);
 
                             break;
                     }
@@ -101,7 +99,7 @@ namespace CSKernel
             return BitConverter.ToString(signatureChecker.Hash).Replace("-", "").ToLowerInvariant();
         }
 
-        private static void SendMessage(Message message, IOutgoingSocket shellSocket)
+        private static void SendMessage(Message message, IOutgoingSocket shellSocket, HashAlgorithm signatureChecker)
         {
             if (message.Identity.Count > 0)
             {
@@ -115,7 +113,7 @@ namespace CSKernel
                 shellSocket.SendFrame(message.UUID, true);
             }
             shellSocket.SendFrame(Delimiter, true);
-            shellSocket.SendFrame(message.HMacSignature ?? string.Empty, true);
+            shellSocket.SendFrame(GetSignature(message, signatureChecker), true);
             shellSocket.SendFrame(JsonConvert.SerializeObject(message.Header), true);
             shellSocket.SendFrame(JsonConvert.SerializeObject(message.ParentHeader), true);
             shellSocket.SendFrame(JsonConvert.SerializeObject(message.Metadata), true);
