@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using CSKernel.IPythonProtocol;
 using NetMQ;
 using NetMQ.Sockets;
 using Newtonsoft.Json;
@@ -65,6 +66,17 @@ namespace CSKernel
                             SendMessage(replyMessage, shellSocket);
 
                             break;
+                        case "shutdown_request":
+                            var requestInfo = JsonConvert.DeserializeObject<ShutdownRequest>(message.Content);
+                            if (!requestInfo.Restart)
+                            {
+                                source.Cancel();
+                            }
+                            var shutdownReplyMessage = GetReplyMessage(message, "shutdown_reply", requestInfo);
+                            shutdownReplyMessage.HMacSignature = GetSignature(shutdownReplyMessage, signatureChecker);
+                            SendMessage(shutdownReplyMessage, shellSocket);
+
+                            break;
                     }
                 }
             }
@@ -110,7 +122,7 @@ namespace CSKernel
             shellSocket.SendFrame(message.Content);
         }
 
-        private static Message GetReplyMessage(Message parentMessage, string messageType, KernelInfoReply kernelInfoReply)
+        private static Message GetReplyMessage(Message parentMessage, string messageType, object kernelInfoReply)
         {
             var replyMessage = new Message
             {

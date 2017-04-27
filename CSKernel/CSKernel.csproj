@@ -55,6 +55,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConnectionFile.cs" />
+    <Compile Include="IPythonProtocol\Header.cs" />
+    <Compile Include="IPythonProtocol\ShutdownRequest.cs" />
     <Compile Include="KernelInfoReply.cs" />
     <Compile Include="Message.cs" />
     <Compile Include="Program.cs" />

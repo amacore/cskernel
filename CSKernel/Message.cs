@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
+using CSKernel.IPythonProtocol;
 
 namespace CSKernel
 {
@@ -17,19 +17,5 @@ namespace CSKernel
         public Header ParentHeader { get; set; }
         public Dictionary<string, object> Metadata { get; set; }
         public string Content { get; set; }
-    }
-
-    public class Header
-    {
-        [JsonProperty("msg_id")]
-        public string MessageId { get; set; }
-        [JsonProperty("username")]
-        public string Username { get; set; }
-        [JsonProperty("session")]
-        public string Session { get; set; }
-        [JsonProperty("msg_type")]
-        public string MessageType { get; set; }
-        [JsonProperty("version")]
-        public string Version { get; set; }
     }
 }
